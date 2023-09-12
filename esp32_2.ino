@@ -1,0 +1,140 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <ArduinoJson.hpp>
+
+// Sensor Setup
+#define MQ_2 12
+//#define MQ_6 14
+
+float mq_2 = 0;
+//float mq_6 = 0;
+
+//Interval for data send
+int interval = 1000;
+
+// Replace the SSID/Password details as per your wifi router
+const char* ssid = "Spydo_Ultimate";
+const char* password = "wearespiderultimate";
+
+// Replace your MQTT Broker IP address here:
+const char* mqtt_server = "192.168.0.167";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+long lastMsg = 0;
+
+#define ledPin 13
+
+void blink_led(unsigned int times, unsigned int duration){
+  for (int i = 0; i < times; i++) {
+    digitalWrite(ledPin, HIGH);
+    delay(duration);
+    digitalWrite(ledPin, LOW); 
+    delay(200);
+  }
+}
+
+void setup_wifi() {
+  delay(50);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  int c=0;
+  while (WiFi.status() != WL_CONNECTED) {
+    blink_led(2,200); //blink LED twice (for 200ms ON time) to indicate that wifi not connected
+    delay(1000); //
+    Serial.print(".");
+    c=c+1;
+    if(c>10){
+        ESP.restart(); //restart ESP after 10 seconds
+    }
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  
+}
+
+void connect_mqttServer() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+
+        //first check if connected to wifi
+        if(WiFi.status() != WL_CONNECTED){
+          //if not connected, then first connect to wifi
+          setup_wifi();
+        }
+
+        //now attemt to connect to MQTT server
+        Serial.print("Attempting MQTT connection...");
+        // Attempt to connect
+        if (client.connect("ESP32_client1")) { // Change the name of client here if multiple ESP32 are connected
+          //attempt successful
+          Serial.println("connected");
+          // Subscribe to topics here
+          client.subscribe("rpi/broadcast");
+          //client.subscribe("rpi/xyz"); //subscribe more topics here
+          
+        } 
+        else {
+          //attempt not successful
+          Serial.print("failed, rc=");
+          Serial.print(client.state());
+          Serial.println(" trying again in 2 seconds");
+    
+          blink_led(3,200); //blink LED three times (200ms on duration) to show that MQTT server connection attempt failed
+          // Wait 2 seconds before retrying
+          delay(2000);
+        }
+  }
+  
+}
+
+void mqttRead(){
+    mq_2 = analogRead(MQ_2)
+//    mq_6 = analogRead(MQ_6)
+}
+
+void setup() {
+  // Initialize led pin
+//  pinMode(ledPin, OUTPUT);
+  // Initalize the INPUT pins
+  pinMode(MQ_2, INPUT);
+//  pinMode(MQ_6, INPUT);
+
+  Serial.begin(115200);
+
+  setup_wifi();
+  client.setServer(mqtt_server,1883);//1883 is the default port for MQTT server
+}
+
+void loop() {
+  //Json
+  StaticJsonDocument<80> doc;
+  char output[80];
+
+  if (!client.connected()) {
+    connect_mqttServer();
+  }
+
+  client.loop();
+  
+  long now = millis();
+  if (now - lastMsg > intervel) {
+    lastMsg = now;
+    int gassensorAnalog = analogRead(MQ_2);
+    Serial.println(gassensorAnalog);
+    doc["mq2"] = gassensorAnalog;
+//    doc["mq6"] = mq_6;
+    serializeJson(doc, output);
+    client.publish("esp32/2", output); //topic name (to which this ESP32 publishes its data)
+  }
+  
+}

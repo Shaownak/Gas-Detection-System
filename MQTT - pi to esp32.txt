@@ -1,0 +1,24 @@
+#Install Mqtt on the system 
+
+sudo apt install mosquitto
+sudo apt install mosquitto-client
+
+
+#python script to connect as client(Install pip)
+
+sudo pip3 install paho-mqtt
+
+
+
+#Start mqtt broker
+
+sudo systemctl start mosquitto.service
+	---> Change start to stop or restart for those proccess
+
+
+
+
+#Install library for Arduino Json and pubsub, Mqtt client for Arduino
+#mqtt ->https://github.com/knolleary/pubsubclient
+
+#arduino Json -->https://github.com/bblanchon/ArduinoJson
